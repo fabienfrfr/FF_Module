@@ -2,12 +2,15 @@
 # -*- coding: utf-8 -*-
 """
 Created on Wed Aug 25 19:09:48 2021
-
 @author: fabien
 """
 
 import numpy as np, pylab as plt
 import networkx as nx
+
+from sklearn.cluster import Birch
+from sklearn import preprocessing
+
 
 ## Global parameter
 N = 300
@@ -42,46 +45,20 @@ pos = dict(enumerate(xy.tolist()))
 ## construct geometric graph
 G = nx.random_geometric_graph(N+I+O, 2.5, pos=pos)
 
-## draw network
-plt.figure(figsize=(8, 8))
+## clustering
+min_max_scaler = preprocessing.MinMaxScaler()
+X = min_max_scaler.fit_transform(Hidden)    
+
+cluster = Birch(n_clusters = 32, threshold=X.std()/np.pi).fit(X)
+label = cluster.labels_
+
+# draw cluster with graph
+fig = plt.figure(figsize=(8, 8))
+
 nx.draw_networkx_edges(G, pos, alpha=0.1)
 nx.draw_networkx_nodes(G, pos, node_size=20, cmap=plt.cm.Reds_r)
-#plt.savefig("OUT/graph_nn.png", dpi=360)
-plt.axis("off"); plt.show()
 
-
-"""
-# Use seed when creating the graph for reproducibility
-G = nx.random_geometric_graph(500, 0.125)
-# position is stored as node attribute data for random_geometric_graph
-pos = nx.get_node_attributes(G, "pos")
-
-# find node near center (0.5,0.5)
-dmin = 1
-ncenter = 0
-for n in pos:
-    x, y = pos[n]
-    d = (x - 0.5) ** 2 + (y - 0.5) ** 2
-    if d < dmin:
-        ncenter = n
-        dmin = d
-
-# color by path length from node near center
-p = dict(nx.single_source_shortest_path_length(G, ncenter))
-
-plt.figure(figsize=(8, 8))
-nx.draw_networkx_edges(G, pos, alpha=0.4)
-nx.draw_networkx_nodes(
-    G,
-    pos,
-    nodelist=list(p.keys()),
-    node_size=80,
-    node_color=list(p.values()),
-    cmap=plt.cm.Reds_r,
-)
-
-plt.xlim(-0.05, 1.05)
-plt.ylim(-0.05, 1.05)
-plt.axis("off")
-plt.show()
-"""
+ax = fig.add_subplot(111)
+for l in np.unique(label):
+    ax.plot(Hidden[label==l,0],Hidden[label==l,1], 'o', ms=5)
+plt.axis("off"); plt.show(); plt.close()
