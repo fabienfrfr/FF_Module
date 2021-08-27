@@ -6,4 +6,6 @@ Try to find optimized topology of neural network through evolution. (avoid math 
 
 Inspired by https://www.asimovinstitute.org/neural-network-zoo/
 
+
+Premier test : 
 ![TestingTOPO](NN_FirstTest.png)
