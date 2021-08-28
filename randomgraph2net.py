@@ -24,7 +24,7 @@ E1 = (g/g.sum())
 
 ## construct density hidden grid
 X, Y = np.mgrid[0.1:3*np.pi:.1,0.1:3*np.pi:.1]
-Z = (np.sin(X)*np.cos(Y))**10
+Z = (np.sin(X)*np.cos(np.pi/2+Y))**10
 Z = E1*Z
 E = (Z/Z.sum()).T # density
 plt.contourf(X,Y,E); plt.show(); plt.close()
@@ -52,6 +52,10 @@ X = min_max_scaler.fit_transform(Hidden)
 
 cluster = Birch(n_clusters = 32, threshold=X.std()/np.pi).fit(X)
 label = cluster.labels_
+
+"""
+Meilleurs solution : segmentation du pattern! (d'ailleurs mieux pour proba initiale)
+"""
 
 # draw cluster with graph
 fig = plt.figure(figsize=(8, 8))
@@ -115,6 +119,16 @@ for n in range(len(CONNECTED)) :
 
 nx.draw_networkx_edges(H, pos, alpha=0.1)
 nx.draw_networkx_nodes(H, pos, node_size=20, cmap=plt.cm.Reds_r)
+
+"""
+Il y a trois probleme :
+    - Les premieres couches n'ont que une seule sortie...
+        Ajouter probabilité de se connecter si est deja attribué comme sortie ?
+    - La seconde est que toutes les sortie des "entrée du reseau" ne sont pas connecté
+        Ajouter des connections avec couches superieurs ? (de maniere artificiel) 
+    - La derniere, si une couche est connecté à toute les noeuds d'une autre couche, il n'y a plus d'entrée..
+        Ajouter connection artificiellement ? (proportionnel à nb de sortie ? ou au moins une seule ?)
+"""
 
 
 
