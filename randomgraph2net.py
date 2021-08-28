@@ -16,6 +16,7 @@ from sklearn import preprocessing
 N = 300
 I, O = 100, 100
 
+########################################## CONSTRUCT GRAPH
 ## density gradient
 a = (O-I)/10
 g = a*np.mgrid[0.1:3*np.pi:.1]+I
@@ -62,3 +63,61 @@ ax = fig.add_subplot(111)
 for l in np.unique(label):
     ax.plot(Hidden[label==l,0],Hidden[label==l,1], 'o', ms=5)
 plt.axis("off"); plt.show(); plt.close()
+
+"""
+A = nx.convert_matrix.to_numpy_array(G)
+plt.imshow(A);plt.show();plt.close()
+"""
+########################################## EPURATION GRAPH (conserv recurance ?)
+### initialisation
+# collect basic info
+IDX = np.array(list(pos.keys()), dtype=int)
+XY = np.array(list(pos.values()), dtype=object)
+LABEL = np.concatenate((np.zeros(I), label+1, -1*np.ones(O))).astype(int)
+# define connection (1) or perceptron (-1)
+TYPE = np.zeros((N+I+O,1), dtype=int)
+TYPE[:I] = -1
+TYPE[I+N:] = 1
+# concat
+DATA = np.concatenate((IDX[:,None],XY,LABEL[:,None], TYPE), axis=1)
+### connect near neighbors and update type
+CONNECTED = np.array(len(DATA)*[[None]], dtype=object)
+for d in DATA[::-1]:
+    # verifing if indef type or input
+    if d[-1] != -1 :
+        # extract link
+        vertice = np.fromiter(G.neighbors(d[0]), dtype=int)
+        # extract data vertice
+        data = DATA[vertice]
+        #print(len(data))
+        # eliminate incoherent node
+        data = data[data[:,-2]!= d[-2]]
+        data = data[data[:,-1]!=1]
+        # calculate euclidean dist
+        X = data[:,1:3].astype(float)
+        if X.size != 0 :
+            dist = np.linalg.norm(X-d[1:3].astype(float),axis=1)
+            # choose node
+            data = data[dist==dist.min()][0]
+            CONNECTED[d[0]] = data[0]
+            # update DATA TYPE
+            DATA[data[0],-1] = -1
+
+# reconstruct graph
+H = nx.Graph()
+# add node
+for d in DATA :
+    H.add_node(d[0],pos=d[1:3])
+# add edges
+for n in range(len(CONNECTED)) :
+    if CONNECTED[n] != None :
+        H.add_edge(n,CONNECTED[n][0])
+
+nx.draw_networkx_edges(H, pos, alpha=0.1)
+nx.draw_networkx_nodes(H, pos, node_size=20, cmap=plt.cm.Reds_r)
+
+
+
+
+
+
