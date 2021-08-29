@@ -16,7 +16,7 @@ from skimage.feature import peak_local_max
 
 ## Global parameter
 N = 300
-I, O = 100, 50
+I, O = 100, 10
 
 ########################################## CONSTRUCT GRAPH
 ## density gradient
@@ -47,6 +47,7 @@ plt.imshow(markers); plt.show(); plt.close()
 loc = []
 for m in np.unique(markers) :
     loc += [[np.mean(X[markers == m]), np.mean(Y[markers == m])]]
+loc += [[-0.5,0],[-0.5,10], [10,0],[10,10]]
 loc = np.array(loc)
 dist_min = []
 for l in loc :
@@ -77,9 +78,10 @@ SEGMENTATION PLUTOT
 min_max_scaler = preprocessing.MinMaxScaler()
 X = min_max_scaler.fit_transform(Hidden)    
 
-cluster = Birch(n_clusters = 32, threshold=X.std()/np.pi).fit(X)
+cluster = Birch(n_clusters = 9, threshold=X.std()/np.pi).fit(X)
 label = cluster.labels_
-    
+labelling = np.unique(label)
+
 # draw cluster with graph
 fig = plt.figure(figsize=(8, 8))
 
@@ -87,7 +89,7 @@ nx.draw_networkx_edges(G, pos, alpha=0.1)
 nx.draw_networkx_nodes(G, pos, node_size=20, cmap=plt.cm.Reds_r)
 
 ax = fig.add_subplot(111)
-for l in np.unique(label):
+for l in labelling :
     ax.plot(Hidden[label==l,0],Hidden[label==l,1], 'o', ms=5)
 plt.axis("off"); plt.show(); plt.close()
 
@@ -122,17 +124,22 @@ for d in DATA[::-1]:
         data = data[data[:,-3] != d[-3]]
         data = data[data[:,-2] != 1]
         # calculate euclidean dist
-        X = data[:,1:3].astype(float)
-        if X.size != 0 :
-            dist = np.linalg.norm(X-d[1:3].astype(float),axis=1)
-            # artificial proba connection (Odds ratio)
+        V = data[:,1:3].astype(float)
+        if V.size != 0 :
+            dist = np.linalg.norm(V-d[1:3].astype(float),axis=1)
+            # artificial proba connection (Odds ratio and front/back)
             dist = dist*data[:,-1]
+            sign = np.sign(d[1]-V[:,0]); sign[sign==-1] = np.pi
+            dist = sign*dist
             # choose node
-            data_min = data[dist==dist.min()][0]
+            ndist = abs(dist-dist.max()).astype(float)
+            if dist.size == 1 or ndist.sum() == 0 : idx = 0
+            else : idx = np.random.choice(dist.size, p=ndist/ndist.sum()) # dist==dist.min()
+            data_min = data[idx]
             CONNECTED[d[0]] = data_min[0]
             # update DATA TYPE & Proba (+10%)
             DATA[data_min[0],-2] = -1
-            DATA[data_min[0],-1] += .1
+            DATA[data_min[0],-1] += .25
 
 # reconstruct graph
 H = nx.Graph()
@@ -145,20 +152,11 @@ for n in range(len(CONNECTED)) :
         H.add_edge(n,CONNECTED[n][0])
 
 nx.draw_networkx_edges(H, pos, alpha=0.1)
-nx.draw_networkx_nodes(H, pos, node_size=20, cmap=plt.cm.Reds_r)
+nx.draw_networkx_nodes(H, pos, node_size=10, cmap=plt.cm.Reds_r)
+plt.savefig("OUT/NN.svg"); plt.show(); plt.close()
 
-"""
-Il y a trois probleme :
-    - Les premieres couches n'ont que une seule sortie...
-        Ajouter probabilité de se connecter si est deja attribué comme sortie ?
-    - La seconde est que toutes les sortie des "entrée du reseau" ne sont pas connecté
-        Ajouter des connections avec couches superieurs ? (de maniere artificiel) 
-    - La derniere, si une couche est connecté à toute les noeuds d'une autre couche, il n'y a plus d'entrée..
-        Ajouter connection artificiellement ? (proportionnel à nb de sortie ? ou au moins une seule ?)
-"""
-
-
-
-
-
-
+########################################## COMPLETE GRAPH INPUT (add connect node)
+NEW_DATA = []
+for d in DATA[:I]:
+    if not (CONNECTED == d[0]).any() :
+        print(d[0])
