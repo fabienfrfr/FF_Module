@@ -55,7 +55,8 @@ for l in loc :
 RADIUS = max(dist_min)
 ## random variable position
 x, y = X.ravel(), Y.ravel()
-node = np.random.choice(x.size, N, p=E.ravel())
+DENSITY = E.ravel()
+node = np.random.choice(x.size, N, p=DENSITY)
 plt.plot(x[node],y[node], 'o', ms=1); plt.show(); plt.close()
 
 ## construct position array
@@ -74,6 +75,7 @@ G = nx.random_geometric_graph(N+I+O, RADIUS, pos=pos)
 """
 SEGMENTATION PLUTOT
 """
+MARKERS = markers.ravel()
 
 min_max_scaler = preprocessing.MinMaxScaler()
 X = min_max_scaler.fit_transform(Hidden)    
@@ -153,10 +155,84 @@ for n in range(len(CONNECTED)) :
 
 nx.draw_networkx_edges(H, pos, alpha=0.1)
 nx.draw_networkx_nodes(H, pos, node_size=10, cmap=plt.cm.Reds_r)
-plt.savefig("OUT/NN.svg"); plt.show(); plt.close()
+#plt.savefig("OUT/NN.svg")
+plt.show(); plt.close()
 
 ########################################## COMPLETE GRAPH INPUT (add connect node)
-NEW_DATA = []
+NEW_DATA, i = [], 0
+NEW_CONNECTED = []
 for d in DATA[:I]:
     if not (CONNECTED == d[0]).any() :
-        print(d[0])
+        new_node = np.random.choice(x.size, p=DENSITY)
+        new_xy = [x[new_node],y[new_node]]
+        new_m = MARKERS[new_node]
+        NEW_DATA += [[I+N+i]+new_xy+[new_m]+ [1]+ [1.]]
+        NEW_CONNECTED += [d[0]]
+        i += 1
+NEW_DATA, NEW_CONNECTED = np.array(NEW_DATA), np.array(NEW_CONNECTED)
+## reconstruct data & connect
+DATA_ = np.concatenate((DATA[:I+N],NEW_DATA,DATA[-O:]))
+CONNECT_ = np.concatenate((CONNECTED[:I+N], NEW_CONNECTED[:,None], CONNECTED[-O:]))
+DATA_[-O:,0] += i
+DATA_[:,[0,3]] = DATA_[:,[0,3]].astype(int)
+
+# reconstruct graph
+K = nx.Graph()
+# add node
+for d in DATA_ :
+    K.add_node(d[0],pos=d[1:3])
+# add edges
+for n in range(len(CONNECT_)) :
+    if CONNECT_[n] != None :
+        K.add_edge(n,CONNECT_[n][0])
+
+new_pos = nx.get_node_attributes(K,'pos')
+
+nx.draw_networkx_edges(K, new_pos, alpha=0.1)
+nx.draw_networkx_nodes(K, new_pos, node_size=10, cmap=plt.cm.Reds_r)
+#plt.savefig("OUT/NN.svg")
+plt.show(); plt.close()
+
+########################################## CONVERT GRAPH TO NEURAL FORM
+DATA_ = np.concatenate((DATA_, CONNECT_), axis=1)
+
+IDX = np.unique(DATA_[:,3])
+# idx, neuron, connect, x, y, link
+NEURON_LIST = np.zeros((IDX.size,6), dtype=object)
+NEURON_LIST[:,0] = IDX
+
+for n in range(IDX.size):
+    idx = IDX[n]
+    # param
+    data = DATA_[DATA_[:,3]==idx]
+    NEURON_LIST[n,3] = np.mean(data[:,1]) # x
+    NEURON_LIST[n,4]  = np.mean(data[:,2]) # y
+    NEURON_LIST[n,1] = len(data[data[:,-1]==None]) # n
+    NEURON_LIST[n,2] = len(data[data[:,-1]!=None]) # c
+    # adding link neuron/connec
+    list_c = []
+    for dd in data[data[:,-1]!=None, -1] :
+        layer = DATA_[dd,3]
+        neuron = np.where(DATA_[DATA_[:,3]==layer,0]==dd)[0][0]
+        list_c += [[layer,neuron]]
+    NEURON_LIST[n,-1] = list_c
+
+# reconstruct graph
+L = nx.Graph()
+# add node
+for nn in NEURON_LIST :
+    L.add_node(nn[0],pos=nn[3:5])
+# add edges
+for nn in NEURON_LIST :
+    if nn[2] != 0 :
+        uni, ret = np.unique(np.array(nn[-1])[:,0], return_counts=True)
+        for u,r in zip(uni,ret):
+            L.add_edge(nn[0],u, weight=r)
+
+new_pos = nx.get_node_attributes(L,'pos')
+weight = list(nx.get_edge_attributes(L,'weight').values())
+
+nx.draw_networkx_edges(L, new_pos, alpha=0.1, width=weight)
+nx.draw_networkx_nodes(L, new_pos, node_size=100, cmap=plt.cm.Reds_r)
+#plt.savefig("OUT/NN.svg")
+plt.show(); plt.close()
